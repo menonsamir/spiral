@@ -1,5 +1,7 @@
 # Spiral: Fast, High-Rate Single-Server PIR via FHE Composition
 
+> **WARNING**: This is research-quality code; it has not been checked for side-channel leakage or basic logical or memory safety issues. Do not use this in production.
+
 ## Building
 
 To build Spiral, you will need:
@@ -16,14 +18,23 @@ git lfs install
 cd ~
 git clone https://github.com/Microsoft/vcpkg.git
 ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
-vcpkg install hexl
 ./vcpkg/vcpkg install hexl
 git clone https://github.com/menonsamir/spiral.git
 cd spiral
 python3 select_params.py 20 256
 ```
 
-The `select_params.py` performs the actual Spiral build using CMake automatically. To do this manually, you can run:
+The `select_params.py` performs the actual Spiral build using CMake automatically.
+
+To replicate the key table from the paper, just run:
+
+```
+python3 run_all.py packingcomp --spiral-only
+```
+
+All other figures from the paper can also be generated using this script. We used AWS EC2 `c5n.2xlarge` instances to produce our results.
+
+To perform a manual build, you can run something like:
 
 ```
 cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake
@@ -33,13 +44,7 @@ cmake --build build -j4 -- PARAMSET=PARAMS_DYNAMIC \
 ./spiral 8 7 1234
 ```
 
-The steps are roughly similar on other platforms. If vcpkg is not installed at `~/vcpkg`, you will need to specify its location in the `--vcpkg-root` argument. Building on M1-based macOS devices is quite tricky - support for this is a TODO for now.
-
-To replicate the key table from the paper, just run:
-
-```
-python3 run_all.py packingcomp --spiral-only
-```
+The build steps are roughly similar on other platforms. If vcpkg is not installed at `~/vcpkg`, you will need to specify its location in the `--vcpkg-root` argument. Building on M1-based macOS devices is quite tricky - support for this is a TODO for now.
 
 ## Running
 
