@@ -32,6 +32,7 @@ spiral-*
 *.json
 !exp_lut.json
 !exp_lut_highrate.json
+!fdim_lut_highrate.json
 .idea/
 documents/
 errs-*

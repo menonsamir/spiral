@@ -35,7 +35,7 @@ target_include_directories(spiral PUBLIC /home/$ENV{USER}/vcpkg/installed/)
 # Must specify:
 # -DCMAKE_TOOLCHAIN_FILE=/home/ubuntu/vcpkg/scripts/buildsystems/vcpkg.cmake
 
-find_package(HEXL 1.2.1 CONFIG REQUIRED)
+find_package(HEXL CONFIG REQUIRED)
 target_link_libraries(spiral PRIVATE HEXL::hexl)
 
 add_compile_definitions(
