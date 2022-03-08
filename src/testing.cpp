@@ -456,145 +456,81 @@ void fastMultiplyQueryByDatabaseDim1(
                 }
             }
         }
-    #elif 0
-    //defined(__AVX2__) && !defined(NO_CRT)
-        // static_assert(false, "No! Using AVX2 only! bad!");
-        // __m256i mask_1 = _mm256_set1_epi64x(low_bits_mask_1);
-        // __m256i mask_2 = _mm256_set1_epi64x(low_bits_mask_2);
+    #elif defined(__AVX2__) && !defined(NO_CRT)
+        assert(dim0 * ct_rows >= max_summed_pa_or_b_in_u64);
 
         for (size_t z = 0; z < poly_len; z++) {
-            size_t idx_a_base = z * (2*dim0*n1_padded);
-            size_t idx_b_base = z * (num_per * n2 * dim0 * n0);
-            if (random_data) idx_b_base = 0;//(rand() % 64) * (num_per * n2 * dim0 * n0);
-            if (random_data) idx_a_base = 0;//(rand() % 64) * (num_per * n2 * dim0 * n0);
-            // if (true) {//(z % 256 == 0) {
-            //     b_inp = _mm256_stream_load_si256((__m256i const*)(&database[(z%4) * 4]));
-            //     a1 = _mm256_stream_load_si256((__m256i const *) &reorientedCiphertexts[(z%4) * 4]);
-            //     a2 = _mm256_stream_load_si256((__m256i const *) &reorientedCiphertexts[(z%4) * 4 + 4]);
-            // }
+            size_t idx_a_base = z * (ct_cols * dim0 * ct_rows);
+            size_t idx_b_base = z * (num_per * pt_cols * dim0 * pt_rows);
+            if (random_data) idx_b_base = (z % dummyWorkingSet) * (num_per * pt_cols * dim0 * pt_rows);
 
             for (size_t i = 0; i < num_per; i++) {
-                for (size_t c = 0; c < n2; c++) {
-                    // size_t idx_b = idx_b_base + i * (n2 * dim0 * n0) + c * (dim0 * n0);
-
+                for (size_t c = 0; c < pt_cols; c++) {
                     size_t uroll_max = max_summed_pa_or_b_in_u64;
                     size_t inner_limit = uroll_max;
-                    size_t outer_limit = dim0 * 2 / inner_limit;
+                    size_t outer_limit = dim0 * ct_rows / inner_limit;
 
-                    __uint128_t sums_out_n0_u64_acc[3] = { 0, 0, 0 };
-                    __uint128_t sums_out_n2_u64_acc[3] = { 0, 0, 0 };
+                    uint64_t sums_out_n0_u64_acc[4] = { 0, 0, 0, 0 };
+                    uint64_t sums_out_n2_u64_acc[4] = { 0, 0, 0, 0 };
 
                     for (size_t o_jm = 0; o_jm < outer_limit; o_jm++) {
-                        __m256i sums_out_n0_1 = _mm256_setzero_si256();
-                        __m256i sums_out_n2_1 = _mm256_setzero_si256();
-                        __m256i sums_out_n0_2 = _mm256_setzero_si256();
-                        __m256i sums_out_n2_2 = _mm256_setzero_si256();
-                        __m256i sums_out_n0_3 = _mm256_setzero_si256();
-                        __m256i sums_out_n2_3 = _mm256_setzero_si256();
-                        __m256i sums_out_n0_4 = _mm256_setzero_si256();
-                        __m256i sums_out_n2_4 = _mm256_setzero_si256();
+                        __m256i sums_out_n0 = _mm256_setzero_si256();
+                        __m256i sums_out_n2 = _mm256_setzero_si256();
 
+                        #pragma unroll 16
                         for (size_t i_jm = 0; i_jm < inner_limit/4; i_jm++) {
-                            size_t jm = o_jm * inner_limit + 4*(i_jm);
-                            // __m256i b_inp = _mm256_load_si256((__m256i const*)(&database[idx_b_base]));
-                            // __m256i b_inp_hi = _mm256_shuffle_epi32(b_inp, 0b10110001);
-                            // __m256i b1 = _mm256_permute4x64_epi64(b_inp, 0b00000000);
-                            // __m256i b2 = _mm256_permute4x64_epi64(b_inp, 0b01010101);
-                            // __m256i b3 = _mm256_permute4x64_epi64(b_inp, 0b10101010);
-                            // __m256i b4 = _mm256_permute4x64_epi64(b_inp, 0b11111111);
-                            // __m256i b1 = _mm256_set1_epi64x(database[idx_b_base]);
-                            // __m256i b2 = _mm256_set1_epi64x(database[idx_b_base+1]);
-                            // __m256i b3 = _mm256_set1_epi64x(database[idx_b_base+2]);
-                            // __m256i b4 = _mm256_set1_epi64x(database[idx_b_base+3]);
-                            uint32_t *db_ptr = (uint32_t *)&database[idx_b_base];
-                            __m256i b1 = _mm256_set1_epi32(db_ptr[0]);
-                            __m256i b2 = _mm256_set1_epi32(db_ptr[2]);
-                            __m256i b3 = _mm256_set1_epi32(db_ptr[4]);
-                            __m256i b4 = _mm256_set1_epi32(db_ptr[6]);
-                            __m256i b1_hi = _mm256_set1_epi32(db_ptr[1]);
-                            __m256i b2_hi = _mm256_set1_epi32(db_ptr[3]);
-                            __m256i b3_hi = _mm256_set1_epi32(db_ptr[5]);
-                            __m256i b4_hi = _mm256_set1_epi32(db_ptr[7]);
-                            idx_b_base += 4;
+                            size_t jm = o_jm * inner_limit + (4*i_jm);
 
-                            const uint64_t *v_a1 = &reorientedCiphertexts[idx_a_base + jm * n1_padded];
-                            __m256i a1 = _mm256_load_si256((__m256i const *) &v_a1[0*n1_padded]);
-                            __m256i a2 = _mm256_load_si256((__m256i const *) &v_a1[1*n1_padded]);
-                            __m256i a3 = _mm256_load_si256((__m256i const *) &v_a1[2*n1_padded]);
-                            __m256i a4 = _mm256_load_si256((__m256i const *) &v_a1[3*n1_padded]);
+                            uint64_t b_inp_1 = db[idx_b_base++];
+                            uint64_t b_inp_2 = db[idx_b_base++];
+                            __m256i b  = _mm256_set_epi64x(b_inp_2, b_inp_2, b_inp_1, b_inp_1);
+
+                            const uint64_t *v_a = &v_firstdim[idx_a_base + jm];
+
+                            __m256i a = _mm256_load_si256((const __m256i *)v_a);
+                            __m256i a_lo = a;
+                            __m256i a_hi_hi = _mm256_srli_epi64(a, packed_offset_2);
+                            __m256i b_lo = b;
+                            __m256i b_hi_hi = _mm256_srli_epi64(b, packed_offset_2);
                             
-                            __m256i r1 = _mm256_mul_epu32(a1, b1);
-                            __m256i r2 = _mm256_mul_epu32(a2, b2);
-                            __m256i r3 = _mm256_mul_epu32(a3, b3);
-                            __m256i r4 = _mm256_mul_epu32(a4, b4);
-
-                            __m256i a1_hi = _mm256_srli_epi64(a1, 32);
-                            __m256i a2_hi = _mm256_srli_epi64(a2, 32);
-                            __m256i a3_hi = _mm256_srli_epi64(a3, 32);
-                            __m256i a4_hi = _mm256_srli_epi64(a4, 32);
-
-                            __m256i r1_hi = _mm256_mul_epu32(a1_hi, b1_hi);
-                            __m256i r2_hi = _mm256_mul_epu32(a2_hi, b2_hi);
-                            __m256i r3_hi = _mm256_mul_epu32(a3_hi, b3_hi);
-                            __m256i r4_hi = _mm256_mul_epu32(a4_hi, b4_hi);
-
-                            sums_out_n0_1 = _mm256_add_epi64(sums_out_n0_1, r1);
-                            sums_out_n0_2 = _mm256_add_epi64(sums_out_n0_2, r2);
-                            sums_out_n0_3 = _mm256_add_epi64(sums_out_n0_3, r3);
-                            sums_out_n0_4 = _mm256_add_epi64(sums_out_n0_4, r4);
-
-                            sums_out_n2_1 = _mm256_add_epi64(sums_out_n2_1, r1_hi);
-                            sums_out_n2_2 = _mm256_add_epi64(sums_out_n2_2, r2_hi);
-                            sums_out_n2_3 = _mm256_add_epi64(sums_out_n2_3, r3_hi);
-                            sums_out_n2_4 = _mm256_add_epi64(sums_out_n2_4, r4_hi);
+                            sums_out_n0 = _mm256_add_epi64(sums_out_n0, _mm256_mul_epu32(a_lo, b_lo));
+                            sums_out_n2 = _mm256_add_epi64(sums_out_n2, _mm256_mul_epu32(a_hi_hi, b_hi_hi));
                         }
-
-                        sums_out_n0_1 = _mm256_add_epi64(_mm256_add_epi64(sums_out_n0_1, sums_out_n0_2), _mm256_add_epi64(sums_out_n0_3, sums_out_n0_4));
-                        sums_out_n2_1 = _mm256_add_epi64(_mm256_add_epi64(sums_out_n2_1, sums_out_n2_2), _mm256_add_epi64(sums_out_n2_3, sums_out_n2_4));
                         
                         // reduce here, otherwise we will overflow
                         alignas(64) uint64_t sums_out_n0_u64[4];
                         alignas(64) uint64_t sums_out_n2_u64[4];
-                        _mm256_store_si256 ((__m256i *)&sums_out_n0_u64, sums_out_n0_1);
-                        _mm256_store_si256 ((__m256i *)&sums_out_n2_u64, sums_out_n2_1);
+                        _mm256_store_si256((__m256i *)sums_out_n0_u64, sums_out_n0);
+                        _mm256_store_si256((__m256i *)sums_out_n2_u64, sums_out_n2);
 
-                        for (size_t idx = 0; idx < 3; idx++) 
-                            sums_out_n0_u64_acc[idx] = (sums_out_n0_u64_acc[idx] + (__uint128_t)sums_out_n0_u64[idx]);// % q_intermediate;
-                        for (size_t idx = 0; idx < 3; idx++) 
-                            sums_out_n2_u64_acc[idx] = (sums_out_n2_u64_acc[idx] + (__uint128_t)sums_out_n2_u64[idx]);// % b_i;
+                        for (size_t idx = 0; idx < 4; idx++) {
+                            uint64_t val = sums_out_n0_u64[idx];
+                            sums_out_n0_u64_acc[idx] = (sums_out_n0_u64_acc[idx] + val) % p_i;
+                        }
+                        for (size_t idx = 0; idx < 4; idx++) {
+                            uint64_t val = sums_out_n2_u64[idx];
+                            sums_out_n2_u64_acc[idx] = (sums_out_n2_u64_acc[idx] + val) % b_i;
+                        }
                     }
 
-                    // for (size_t idx = 0; idx < 3; idx++) 
-                    //     output[idx] = (sums_out_n0_u64_acc[idx] + output[idx]);
-                    // for (size_t idx = 0; idx < 3; idx++) 
-                    //     output[idx] = (sums_out_n2_u64_acc[idx] + output[idx]);
+                    for (size_t idx = 0; idx < 4; idx++) {
+                        sums_out_n0_u64_acc[idx] %= p_i;
+                        sums_out_n2_u64_acc[idx] %= b_i;
+                    }
 
                     // output n0
                     size_t n = 0;
-                    size_t idx_c = i * (n1*n2*crt_count*poly_len) + c * (crt_count*poly_len) + n * (poly_len) + z;
-                    output[idx_c] = sums_out_n0_u64_acc[0] % p_i;
-                    idx_c += (n2*crt_count*poly_len);
-                    output[idx_c] = sums_out_n0_u64_acc[1] % p_i;
-                    idx_c += (n2*crt_count*poly_len);
-                    output[idx_c] = sums_out_n0_u64_acc[2] % p_i;
+                    size_t idx_c = c * (crt_count*poly_len) + n * (poly_len) + z;
+                    out[i].data[idx_c] = barrett_coeff(sums_out_n0_u64_acc[0]+sums_out_n0_u64_acc[2], 0);
+                    idx_c += (pt_cols*crt_count*poly_len);
+                    out[i].data[idx_c] = barrett_coeff(sums_out_n0_u64_acc[1]+sums_out_n0_u64_acc[3], 0);
 
-                    // // output n1
-                    // n = 1;
-                    // idx_c = i * (n1*n2*crt_count*poly_len) + c * (crt_count*poly_len) + n * (poly_len) + z;
-                    // output[idx_c] = sums_out_n0_u64_acc[0] % a_i;
-                    // idx_c += (n2*crt_count*poly_len);
-                    // output[idx_c] = sums_out_n0_u64_acc[1] % a_i;
-                    // idx_c += (n2*crt_count*poly_len);
-                    // output[idx_c] = sums_out_n0_u64_acc[2] % a_i;
-
-                    // output n2
+                    // output n1
                     n = 1;
-                    idx_c = i * (n1*n2*crt_count*poly_len) + c * (crt_count*poly_len) + n * (poly_len) + z;
-                    output[idx_c] = sums_out_n2_u64_acc[0] % b_i;//reduction_u128_qq(sums_out_n2_u64_acc[0]);// % b_i;
-                    idx_c += (n2*crt_count*poly_len);
-                    output[idx_c] = sums_out_n2_u64_acc[1] % b_i;//reduction_u128_qq(sums_out_n2_u64_acc[1]);// % b_i;
-                    idx_c += (n2*crt_count*poly_len);
-                    output[idx_c] = sums_out_n2_u64_acc[2] % b_i;//reduction_u128_qq(sums_out_n2_u64_acc[2]);// % b_i;
+                    idx_c = c * (crt_count*poly_len) + n * (poly_len) + z;
+                    out[i].data[idx_c] = barrett_coeff(sums_out_n2_u64_acc[0]+sums_out_n2_u64_acc[2], 1);
+                    idx_c += (pt_cols*crt_count*poly_len);
+                    out[i].data[idx_c] = barrett_coeff(sums_out_n2_u64_acc[1]+sums_out_n2_u64_acc[3], 1);
                 }
             }
         }
