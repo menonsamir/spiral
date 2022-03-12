@@ -82,6 +82,27 @@ exp_lut_fname = 'exp_lut.json' if not high_rate else 'exp_lut_highrate.json'
 fdim_lut_fname = 'fdim_lut.json' if not high_rate else 'fdim_lut_highrate.json'
 optimize_for = args.optimize_for
 
+p_mod_table = {
+    17: 131072,
+    18: 262144,
+    19: 524288,
+    20: 1048576,
+    21: 2097152,
+    22: 4194304,
+    23: 8388592,
+    24: 16777184,
+    25: 33554332,
+    26: 67108804,
+    27: 134217608,
+    28: 268435216,
+    29: 536742296,
+    30: 1073612276,
+}
+p_mod_table_pval = {(1 << key): value for (key, value) in p_mod_table.items()}
+for i in range(1, 16+1):
+    p_mod_table_pval[1<<i] = 1<<i
+get_real_p = lambda x: p_mod_table_pval[x]
+
 exp_lut = {}
 if not args.build_exp_lut:
     fh = open(exp_lut_fname, 'r')
@@ -273,7 +294,7 @@ def apply_factor(itemsize, targetnum, x):
     n = 2
     if high_rate:
         n = x["n"]
-    base_item_size = float(n*n*2048*math.log(x["p"],2)/8)
+    base_item_size = float(n*n*2048*math.log(get_real_p(x["p"]),2)/8)
     fact = math.ceil(itemsize / base_item_size)
     c_fn = calc_cost_highrate if high_rate else calc_cost
     cost_res = c_fn(factor=fact, **x)
@@ -293,7 +314,7 @@ def pred(itemsize, targetnum, x):
         req_nu_2 = int(parts[1])
         if x["nu_1"] != req_nu_1 or x["nu_2"] != req_nu_2:
             return False
-    base_item_size = float(n*n*2048*math.log(x["p"],2)/8)
+    base_item_size = float(n*n*2048*math.log(get_real_p(x["p"]),2)/8)
     fact = math.ceil(itemsize / base_item_size)
 
     mindbsize = targetnum * itemsize
@@ -313,7 +334,7 @@ def pred(itemsize, targetnum, x):
         p1 = p1 and (str((x["nu_1"], x["nu_2"])) in fdim_lut)
     return p1
 
-param_f = lambda t: f"TEXP={t[0]} TEXPRIGHT={t[1]} TCONV={t[2]} TGSW={t[3]} QPBITS={t[4]} PVALUE={t[5]} QNUMFIRST={t[6]} QNUMREST={t[7]} OUTN={t[8]} ADDTL_CXX_FLAGS={addtl_flags}"
+param_f = lambda t: f"TEXP={t[0]} TEXPRIGHT={t[1]} TCONV={t[2]} TGSW={t[3]} QPBITS={t[4]} PVALUE={get_real_p(t[5])} QNUMFIRST={t[6]} QNUMREST={t[7]} OUTN={t[8]} ADDTL_CXX_FLAGS={addtl_flags}"
 cmd_mk = lambda t: f"make clean && PARAMSET=PARAMS_DYNAMIC " + param_f(t)+ " make spiral -j4"
 if use_cmake:
     cmd_clean = "rm -rf build/"
@@ -554,8 +575,8 @@ avgd_runs = {k: sum([r[k] for r in runs_l])/len(runs_l) for k in runs_l[0].keys(
 this_n = 2
 if high_rate:
     this_n = params["n"]
-avgd_runs["item_sz"] = factor * (this_n*this_n*2048*math.log(params["p"], 2)/8)
-avgd_runs["dbsize"] = factor * (2**(params["nu_1"] + params["nu_2"]))*(this_n*this_n*2048*math.log(params["p"], 2)/8)
+avgd_runs["item_sz"] = factor * (this_n*this_n*2048*math.log(get_real_p(params["p"]), 2)/8)
+avgd_runs["dbsize"] = factor * (2**(params["nu_1"] + params["nu_2"]))*(this_n*this_n*2048*math.log(get_real_p(params["p"]), 2)/8)
 avgd_runs["params"] = params
 
 # note: this calculation is throughput *excluding* expansion costs; only useful for streaming case

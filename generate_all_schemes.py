@@ -7,6 +7,7 @@ from timeit import default_timer as timer
 import sys
 
 p_err_bits = 40.0
+real_q = 66974689739603969
 
 n = 2
 d = 2048
@@ -65,7 +66,7 @@ def calc_fast(
         sigma_GSW_2 = sigma**2
 
     sigma_0_2 = 2**nu_1*n*d*m_pt*(p_db**(1/m_pt)/2)**2*(sigma_regev_2) 
-    sigma_rest = nu_2*d*m_GSW*z_GSW**2/4*(sigma_GSW_2)
+    sigma_rest = nu_2*d*m_GSW*z_GSW**2/2*(sigma_GSW_2)
     sigma_r_2 = sigma_0_2 + sigma_rest
 
     return sigma_r_2
@@ -133,37 +134,57 @@ def calc_fast_highrate(
         sigma_GSW_2 = sigma_GSW_2 * d * (C*sigma)**2 + t_conv*d*sigma**2*z_conv**2/2
 
     sigma_0_2 = 2**nu_1*n*d*(p_db/2)**2*(sigma_regev_2) 
-    sigma_rest = nu_2*d*m_GSW*z_GSW**2/4*(sigma_GSW_2)
+    sigma_rest = nu_2*d*m_GSW*z_GSW**2/2*(sigma_GSW_2)
     sigma_r_2 = sigma_0_2 + sigma_rest
 
     sigma_packing_2 = (d * true_n * (t_conv))*(sigma**2)*(z_conv**2)/4
 
     return sigma_r_2 + sigma_packing_2
 
+p_mod_table = {
+    17: 131072,
+    18: 262144,
+    19: 524288,
+    20: 1048576,
+    21: 2097152,
+    22: 4194304,
+    23: 8388592,
+    24: 16777184,
+    25: 33554332,
+    26: 67108804,
+    27: 134217608,
+    28: 268435216,
+    29: 536742296,
+    30: 1073612276,
+}
+p_mod_table_pval = {(1 << key): value for (key, value) in p_mod_table.items()}
+for i in range(1, 16+1):
+    p_mod_table_pval[1<<i] = 1<<i
+get_real_p = lambda x: p_mod_table_pval[x]
+
 def get_p_err_fast_highrate(p, q_prime, q, s_e, n=2, sigma=6.4):
-    p = float(p)
+    old_p = p
+    p = float(get_real_p(int(p)))
     q_prime = float(q_prime)
     q = float(q)
     s_e = float(s_e)
     sigma = float(sigma)
-    
-    q_mod_p = 1
-    q_prime_mod_p = 1
+
+    q_mod_p = q % p
+    # explanation:
+    # we assume q_1 = 4*p
+    # then the threshold for correctness is:
+    # thresh = 1/2 - ((1/4)*((1/2)*((q_1 mod p) + (q_1/q)*(q mod p) + 2)))
+    #        = 1/2 - (1/8)*(4*p/q)*(q mod p) - 1/4
+    #        = 1/4 - (1/8)*((4*p)*q_mod_p/q)
     modswitch_adj = (1.0/8.0)*((4*p)*q_mod_p/q)
     thresh = (1/4) - modswitch_adj
-    assert thresh > 0 and thresh <= (1.0/4.0)
+    assert thresh > 0 and thresh <= (1.0/4.0), (thresh, p, old_p)
 
     s_round_2 = (sigma**2)*d/4
-    # s_tot_2 = float(s_e*(p/float(q))**2 + (s_round_2)*(q_prime/q)**2)
-    # s_tot = math.sqrt(s_tot_2)
     numer = float(-math.pi * (thresh)**2)
     denom = float(s_e*(p/q)**2 + (s_round_2)*(p/q_prime)**2)
 
-    # numer = float(-math.pi * (thresh)**2)
-    # denom = float(s_e*(p/float(q))**2 + (s_round_2)*(q_prime/q)**2)
-    
-    # p_single_err_log = math.log(2*s_tot*math.erf(math.sqrt(math.pi)/(2*s_tot)))#math.log(2) + (numer / denom)
-    # p_single_err_log = math.log(4*s_tot * math.erf(math.sqrt(math.pi)/(4*s_tot)))#math.log(2) + (numer / denom)
     p_single_err_log = math.log(2) + (numer / denom)
     pr_err_log = p_single_err_log + math.log(n * n * 2048)
     return (pr_err_log)*math.log(math.e, 2)
@@ -293,7 +314,7 @@ def get_regular_choices():
             poss_nus.append((j1,j2))
     choices = {
         "p": [2**i for i in range(2,15+1)],
-        "q": [2**56-1],
+        "q": [real_q],
         "t_GSW": list(range(2, 56+1)),
         "t_exp": [0],#list(range(4, 56+1)),
         "t_exp_right": [56],
@@ -312,7 +333,7 @@ def get_regular_choices():
 # def get_regular_choices():
 #     choices = {
 #         "p": [512],
-#         "q": [2**56-1],
+#         "q": [real_q],
 #         "t_GSW": [8],
 #         "t_exp": [16],
 #         "t_exp_right": [56],
@@ -332,7 +353,7 @@ def get_streaming_choices():
             poss_nus.append((j1,j2))
     choices = {
         "p": [2**i for i in range(2,20+1)],
-        "q": [2**56-1],
+        "q": [real_q],
         "t_GSW": list(range(2, 56+1)),
         "t_exp": [0],
         "t_exp_right": [56],
@@ -357,7 +378,7 @@ def get_highrate_choices():
             poss_nus.append((j1,j2))
     choices = {
         "p": [2**i for i in range(2,20+1)],
-        "q": [2**56-1],
+        "q": [real_q],
         "t_GSW": list(range(2, 56+1)),
         "t_exp": [2,4,8,16,32,56],
         "t_exp_right": [56],
@@ -383,7 +404,7 @@ def get_highrate_streaming_choices():
             poss_nus.append((j1,j2))
     choices = {
         "p": [2**i for i in range(10,30+1)],
-        "q": [2**56-1],
+        "q": [real_q],
         "t_GSW": list(range(2, 10+1)),
         "t_exp": [56],
         "t_exp_right": [56],
