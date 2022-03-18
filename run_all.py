@@ -12,8 +12,8 @@ from timeit import default_timer as timer
 systems_table     = ["sealpir", "fastpir", "onionpir", "spiral", "spiralstream", "nopriv"]
 headers_table     = ["SealPIR", "FastPIR", "MulPIR", "OnionPIR", "Spiral", "SpiralStream", "NoPriv"]
 
-systems_asympcomp = ["spiral", "sealpir", "fastpir", "onionpir"]
-headers_asympcomp = ["Spiral", "SealPIR", "FastPIR", "OnionPIR"]
+systems_asympcomp = ["spiral", "spiral-pack", "sealpir", "fastpir", "onionpir"]
+headers_asympcomp = ["Spiral", "Spiral-Pack", "SealPIR", "FastPIR", "OnionPIR"]
 scenarios_all_asympcomp = {
     "asympcomp": [(i, 10000) for i in range(10, 20+1, 2)],
     "asympcomplarge": [(i, 100000) for i in range(10, 20+1, 2)]

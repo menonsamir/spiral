@@ -653,6 +653,10 @@ void multiplyQueryByDatabase(
                     size_t uroll_max = max_summed_pa_or_b_in_u64;
                     size_t inner_limit = uroll_max;
                     size_t outer_limit = dim0 * 2 / inner_limit;
+                    if (dim0 * 2 < max_summed_pa_or_b_in_u64) {
+                        inner_limit = dim0 * 2;
+                        outer_limit = 1;
+                    }
 
                     uint64_t sums_out_n0_u64_acc[6] = { 0, 0, 0 };
                     uint64_t sums_out_n2_u64_acc[6] = { 0, 0, 0 };
