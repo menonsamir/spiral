@@ -1,3 +1,7 @@
+> **⚠️ IMPORTANT ⚠️**
+> 
+> A more complete and documented Rust implementation of Spiral is available at https://github.com/menonsamir/spiral-rs. Future work is being done on this new implementation; we preserve this old repository for reference purposes only, since our original benchmarks were collected using this code. We will not be updating this code.
+
 # Spiral: Fast, High-Rate Single-Server PIR via FHE Composition
 
 This is an implementation of our paper "Spiral: Fast, High-Rate Single-Server PIR via FHE Composition", available [here](https://eprint.iacr.org/2022/368.pdf).
